@@ -5,8 +5,8 @@ homepage: https://github.com/brim-borium/spotify_sdk
 issue_tracker: https://github.com/brim-borium/spotify_sdk/issues
 
 environment:
-  sdk: '>=2.12.0 <3.0.0'
-  flutter: ">=1.12.0"
+  sdk: ">=2.16.2 <3.0.0"
+  flutter: ">=3.0.1"
 
 dependencies:
   flutter:

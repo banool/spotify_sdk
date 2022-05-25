@@ -6,10 +6,11 @@ import 'dart:convert';
 import 'dart:core';
 import 'dart:html';
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:js/js.dart';
@@ -17,6 +18,7 @@ import 'package:js/js_util.dart';
 import 'package:logger/logger.dart';
 import 'package:synchronized/synchronized.dart' as synchronized;
 
+import 'enums/image_dimension_enum.dart';
 import 'enums/repeat_mode_enum.dart';
 import 'models/album.dart';
 import 'models/artist.dart';
@@ -101,9 +103,7 @@ class SpotifySdkPlugin {
   static Dio getDio({String? baseUrl}) {
     BaseOptions? baseOptions;
     if (baseUrl != null) {
-      baseOptions = BaseOptions(
-        baseUrl: baseUrl,
-      );
+      baseOptions = BaseOptions(baseUrl: baseUrl, connectTimeout: 5000);
     }
     return Dio(baseOptions);
   }
@@ -293,6 +293,13 @@ class SpotifySdkPlugin {
         await promiseToFuture(_currentPlayer
             ?.seek(call.arguments[ParamNames.positionedMilliseconds] as int));
         break;
+      case MethodNames.getImage:
+        var imageRaw = await getImage(
+            imageUri: call.arguments[ParamNames.imageUri] as ImageUri,
+            dimension:
+                call.arguments[ParamNames.imageDimension] as ImageDimension?);
+        if (imageRaw == null) return null;
+        return imageRaw;
       default:
         throw PlatformException(
             code: 'Unimplemented',
@@ -844,6 +851,13 @@ class SpotifySdkPlugin {
         state.context.metadata.subtitle,
         state.context.metadata.type,
         state.context.uri);
+  }
+
+  Future<Uint8List?> getImage(
+      {required ImageUri imageUri,
+      ImageDimension? dimension = ImageDimension.medium}) async {
+    // TODO
+    return null;
   }
 }
 
