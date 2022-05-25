@@ -289,6 +289,10 @@ class SpotifySdkPlugin {
             as WebPlaybackState?;
         if (stateRaw == null) return null;
         return jsonEncode(toPlayerState(stateRaw)!.toJson());
+      case MethodNames.seekTo:
+        await promiseToFuture(_currentPlayer
+            ?.seek(call.arguments[ParamNames.positionedMilliseconds] as int));
+        break;
       default:
         throw PlatformException(
             code: 'Unimplemented',
