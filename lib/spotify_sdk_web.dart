@@ -4,16 +4,17 @@ library spotify_sdk_web;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:core';
-import 'dart:developer';
 import 'dart:html';
 import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:js/js.dart';
 import 'package:js/js_util.dart';
+import 'package:logger/logger.dart';
 import 'package:synchronized/synchronized.dart' as synchronized;
 
 import 'enums/repeat_mode_enum.dart';
@@ -71,10 +72,10 @@ class SpotifySdkPlugin {
   final StreamController connectionStatusEventController;
 
   /// Dio http client
-  final Dio _dio = Dio(BaseOptions(
+  final Dio _dio = getDio(
     baseUrl: 'https://api.spotify.com/v1/me/player',
-  ));
-  final Dio _authDio = Dio(BaseOptions());
+  );
+  final Dio _authDio = getDio();
 
   /// Lock for getting the token
   final synchronized.Lock _getTokenLock = synchronized.Lock(reentrant: true);
@@ -86,6 +87,9 @@ class SpotifySdkPlugin {
   static String? tokenSwapURL;
   static String? tokenRefreshURL;
 
+  //logging
+  static final Logger _logger = Logger();
+
   /// constructor
   SpotifySdkPlugin(
       this.playerContextEventController,
@@ -93,6 +97,16 @@ class SpotifySdkPlugin {
       this.playerCapabilitiesEventController,
       this.userStateEventController,
       this.connectionStatusEventController);
+
+  static Dio getDio({String? baseUrl}) {
+    BaseOptions? baseOptions;
+    if (baseUrl != null) {
+      baseOptions = BaseOptions(
+        baseUrl: baseUrl,
+      );
+    }
+    return Dio(baseOptions);
+  }
 
   /// registers plugin method channels
   static void registerWith(Registrar registrar) {
@@ -131,8 +145,25 @@ class SpotifySdkPlugin {
     channel.setMethodCallHandler(instance.handleMethodCall);
   }
 
-  /// handles method coming through the method channel
   Future<dynamic> handleMethodCall(MethodCall call) async {
+    try {
+      return await _handleMethodCall(call);
+    } on DioError catch (e) {
+      var errorString = "DioError logging:\n"
+          "Type: ${e.type}\n"
+          "Message: ${e.message}\n"
+          "Request URI: ${e.requestOptions.uri}\n"
+          "Headers: ${e.requestOptions.headers}\n"
+          "Response: ${e.response}\nError: ${e.error}";
+      _logger.e(errorString);
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// handles method coming through the method channel
+  Future<dynamic> _handleMethodCall(MethodCall call) async {
     // check if spotify is loaded
     if (_sdkLoaded == false) {
       _sdkLoadFuture ??= _initializeSpotify();
@@ -144,7 +175,7 @@ class SpotifySdkPlugin {
         if (_currentPlayer != null) {
           return true;
         }
-        log('Connecting to Spotify...');
+        _logger.d('Connecting to Spotify...');
         var clientId = call.arguments[ParamNames.clientId] as String?;
         var redirectUrl = call.arguments[ParamNames.redirectUrl] as String?;
         var playerName = call.arguments[ParamNames.playerName] as String?;
@@ -219,7 +250,7 @@ class SpotifySdkPlugin {
             scopes:
                 call.arguments[ParamNames.scope] as String? ?? defaultScopes);
       case MethodNames.disconnectFromSpotify:
-        log('Disconnecting from Spotify...');
+        _logger.d('Disconnecting from Spotify...');
         _spotifyToken = null;
         if (_currentPlayer == null) {
           return true;
@@ -269,7 +300,7 @@ class SpotifySdkPlugin {
   /// Loads the Spotify SDK library.
   Future _initializeSpotify() async {
     if (_onSpotifyWebPlaybackSDKReady == null) {
-      log('Loading Spotify SDK...');
+      _logger.d('Loading Spotify SDK...');
 
       // link spotify ready function
       _onSpotifyWebPlaybackSDKReady = allowInterop(_onSpotifyInitialized);
@@ -282,10 +313,10 @@ class SpotifySdkPlugin {
         await Future.delayed(const Duration(milliseconds: 200));
       }
 
-      log('Spotify SDK loaded!');
+      _logger.d('Spotify SDK loaded!');
     } else {
       // spotify sdk already loaded
-      log('Reusing loaded Spotify SDK');
+      _logger.d('Reusing loaded Spotify SDK');
       _sdkLoaded = true;
     }
   }
@@ -304,7 +335,7 @@ class SpotifySdkPlugin {
 
     // ready/not ready
     player.addListener('ready', allowInterop((WebPlaybackPlayer player) {
-      log('Spotify SDK ready!');
+      _logger.d('Spotify SDK ready!');
       _onSpotifyConnected(player.device_id);
     }));
     player.addListener('not_ready', allowInterop((event) {
@@ -325,7 +356,7 @@ class SpotifySdkPlugin {
       // The user needs to interact with the SDK to trigger media activation.
       // https://developer.spotify.com/documentation/web-playback-sdk/quick-start/#mobile-support
       if (error.message.contains('Browser prevented autoplay')) {
-        log('authentication_error: ${error.message}');
+        _logger.e('authentication_error: ${error.message}');
         return;
       }
       _onSpotifyDisconnected(
@@ -336,7 +367,7 @@ class SpotifySdkPlugin {
           errorCode: 'Account Error', errorDetails: error.message);
     }));
     player.addListener('playback_error', allowInterop((WebPlaybackError error) {
-      log('playback_error: ${error.message}');
+      _logger.e('playback_error: ${error.message}');
     }));
   }
 
@@ -365,7 +396,7 @@ class SpotifySdkPlugin {
 
     if (errorCode != null) {
       // disconnected due to error
-      log('$errorCode: $errorDetails');
+      _logger.e('$errorCode: $errorDetails');
     }
 
     // emit not connected event
@@ -531,7 +562,7 @@ class SpotifySdkPlugin {
       var res = await _authDio.fetch(req);
       authResponse = res.data;
     } on DioError catch (e) {
-      log('Spotify auth error: ${e.response?.data}');
+      _logger.e('Spotify auth error: ${e.response?.data}');
       rethrow;
     }
 
@@ -579,7 +610,7 @@ class SpotifySdkPlugin {
       d['refresh_token'] = refreshToken;
       return d;
     } on DioError catch (e) {
-      log('Token refresh error: ${e.response?.data}');
+      _logger.e('Token refresh error: ${e.response?.data}');
       rethrow;
     }
   }

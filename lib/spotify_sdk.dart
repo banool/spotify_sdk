@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 
@@ -633,6 +634,9 @@ class SpotifySdk {
       _logger.e('$method failed with: $message');
     } else if (e is MissingPluginException) {
       _logger.e('$method not implemented');
+    } else if (e is DioError) {
+      _logger.e(
+          'DioError logging:\nType: ${e.type}\nMessage: ${e.message}\nResponse: ${e.response}\nError: ${e.error}');
     } else {
       _logger.e('$method throws unhandled exception: ${e.toString()}');
     }
