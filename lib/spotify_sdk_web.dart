@@ -646,6 +646,16 @@ class SpotifySdkPlugin {
         128, (i) => _chars[math.Random.secure().nextInt(_chars.length)]).join();
   }
 
+  // In this function we assume that you have already confirmed that
+  // _currentPlayer is not null.
+  Map<String, dynamic> getQueryParameters(Map<String, dynamic> q,
+      {bool includeDeviceId = false}) {
+    if (includeDeviceId) {
+      q["device_id"] = _currentPlayer!.deviceID;
+    }
+    return q;
+  }
+
   /// Starts track playback on the device.
   Future _play(String? uri) async {
     if (_currentPlayer?.deviceID == null) {
@@ -658,7 +668,7 @@ class SpotifySdkPlugin {
       data: {
         'uris': [uri]
       },
-      queryParameters: {'device_id': _currentPlayer!.deviceID},
+      queryParameters: getQueryParameters({}, includeDeviceId: true),
       options: Options(
         headers: {
           'Content-Type': 'application/json',
@@ -677,7 +687,7 @@ class SpotifySdkPlugin {
 
     await _dio.post(
       '/queue',
-      queryParameters: {'uri': uri, 'device_id': _currentPlayer!.deviceID},
+      queryParameters: getQueryParameters({'uri': uri}),
       options: Options(
         headers: {
           'Content-Type': 'application/json',
@@ -719,10 +729,9 @@ class SpotifySdkPlugin {
 
     await _dio.put(
       '/repeat',
-      queryParameters: {
+      queryParameters: getQueryParameters({
         'state': repeatMode.toString().substring(11),
-        'device_id': _currentPlayer!.deviceID
-      },
+      }),
       options: Options(
         headers: {
           'Content-Type': 'application/json',
@@ -741,7 +750,7 @@ class SpotifySdkPlugin {
 
     await _dio.put(
       '/shuffle',
-      queryParameters: {'state': state, 'device_id': _currentPlayer!.deviceID},
+      queryParameters: getQueryParameters({'state': state}),
       options: Options(
         headers: {
           'Content-Type': 'application/json',
@@ -760,7 +769,7 @@ class SpotifySdkPlugin {
 
     await _dio.put(
       '/repeat',
-      queryParameters: {'state': state, 'device_id': _currentPlayer!.deviceID},
+      queryParameters: getQueryParameters({'state': state}),
       options: Options(
         headers: {
           'Content-Type': 'application/json',
