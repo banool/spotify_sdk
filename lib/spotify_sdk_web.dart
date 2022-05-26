@@ -103,7 +103,7 @@ class SpotifySdkPlugin {
   static Dio getDio({String? baseUrl}) {
     BaseOptions? baseOptions;
     if (baseUrl != null) {
-      baseOptions = BaseOptions(baseUrl: baseUrl, connectTimeout: 5000);
+      baseOptions = BaseOptions(baseUrl: baseUrl);
     }
     return Dio(baseOptions);
   }
@@ -295,9 +295,8 @@ class SpotifySdkPlugin {
         break;
       case MethodNames.getImage:
         var imageRaw = await getImage(
-            imageUri: call.arguments[ParamNames.imageUri] as ImageUri,
-            dimension:
-                call.arguments[ParamNames.imageDimension] as ImageDimension?);
+            imageUrl: call.arguments[ParamNames.imageUri] as String,
+            dimension: call.arguments[ParamNames.imageDimension] as int?);
         if (imageRaw == null) return null;
         return imageRaw;
       default:
@@ -854,10 +853,10 @@ class SpotifySdkPlugin {
   }
 
   Future<Uint8List?> getImage(
-      {required ImageUri imageUri,
-      ImageDimension? dimension = ImageDimension.medium}) async {
-    // TODO
-    return null;
+      {required String imageUrl, int? dimension}) async {
+    var response = await _dio.get<Uint8List>(imageUrl,
+        options: Options(responseType: ResponseType.bytes));
+    return response.data;
   }
 }
 
